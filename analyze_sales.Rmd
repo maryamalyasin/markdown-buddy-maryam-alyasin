@@ -1,0 +1,196 @@
+---
+title: "Documentation for analyze_sales.R"
+author: "Maryam Alyasin"
+date: "14 November 2026"
+output: html_document
+---
+
+<!-- AI Assistance Declaration: I used Muse (Muse Spark 1.3) on 14 November 2026 for formatting suggestions and code block examples for this R Markdown file. Prompts used: "Here is my R script description. Suggest Markdown formatting and code block examples."; "Add syntax highlighting and improve section organization (e.g., # Purpose, ## Inputs, ## Outputs)."; "Is the Markdown consistent with RMarkdown best practices?" I verified outputs using RStudio/Posit Cloud preview (Knit) and a manual check of headings, code chunks, and file paths. All final calculations are done by myself in R. I am responsible for the accuracy and originality of this work. See Appendix.md for the full prompts. -->
+
+# Purpose
+
+This document explains what `analyze_sales.R` does, what it needs as input, and what it produces as output.
+
+The script analyses synthetic retail sales data. It calculates revenue for each sale and then summarises total units sold and total revenue by product category and by region. It also saves a summary table and a bar chart.
+
+The script does not use real or personal data. All input data is synthetic and is kept in `data/synthetic_sales.csv`.
+
+# Inputs
+
+## Input file
+
+| Item | Detail |
+| --- | --- |
+| File | `data/synthetic_sales.csv` |
+| Rows | 30 data rows, plus a header row |
+| Date range | 1–10 January 2026 |
+| Data type | Synthetic only |
+
+## Columns
+
+| Column | Type | Description |
+| --- | --- | --- |
+| `date` | Date | Sale date |
+| `region` | Text | North, South, East, or West |
+| `category` | Text | Electronics, Clothing, or Home |
+| `units_sold` | Integer | Number of units sold |
+| `unit_price` | Number | Price per unit in dollars |
+
+Revenue is **not** in the input file. It is calculated in the script.
+
+## Requirements
+
+- R (version 4.3 or later recommended)
+- The `tidyverse` package, for `readr`, `dplyr`, and `ggplot2`
+- RStudio or Posit Cloud, to run the script and knit this file
+
+Install the package once, if needed:
+
+```{r install, eval=FALSE}
+install.packages("tidyverse")
+```
+
+# Outputs
+
+## Console output
+
+When the script runs, it prints two summaries to the console:
+
+1. Total units and total revenue by product category.
+2. Total units and total revenue by region.
+
+## Files created
+
+| Output file | Description |
+| --- | --- |
+| `outputs/sales_by_category.csv` | Summary table by product category |
+| `outputs/revenue_by_category.png` | Bar chart of total revenue by product category |
+
+The `outputs/` folder is created by the script if it does not already exist.
+
+## Expected totals for checking
+
+With the supplied synthetic data, running the script should give:
+
+- Total rows: 30
+- Total units sold: 197
+- Total revenue: $22,370.92
+
+These totals were cross-checked against the CSV file. If the script gives different totals, check that it was run from the project root directory and that the input file has not been changed.
+
+# How the script works
+
+The code chunks below are shown for documentation. They are set to `eval=FALSE` so this file can be knitted without running the full analysis. Run the analysis itself from `analyze_sales.R`.
+
+## 1. Load packages
+
+```{r load-packages, eval=FALSE}
+library(tidyverse)
+```
+
+## 2. Read the data
+
+The script reads the CSV file and sets the expected type for each column. Setting types here avoids problems if R guesses a column type incorrectly.
+
+```{r read-data, eval=FALSE}
+sales <- read_csv(
+  "data/synthetic_sales.csv",
+  col_types = cols(
+    date = col_date(),
+    region = col_character(),
+    category = col_character(),
+    units_sold = col_integer(),
+    unit_price = col_double()
+  )
+)
+```
+
+## 3. Check the columns
+
+Before any calculation, the script checks that all expected columns are present. If a column is missing, it stops with a clear error message.
+
+```{r check-columns, eval=FALSE}
+expected_columns <- c("date", "region", "category", "units_sold", "unit_price")
+missing_columns <- setdiff(expected_columns, names(sales))
+
+if (length(missing_columns) > 0) {
+  stop("Missing expected column(s): ", paste(missing_columns, collapse = ", "))
+}
+```
+
+## 4. Calculate revenue
+
+Revenue is calculated in R for each row:
+
+```{r calculate-revenue, eval=FALSE}
+sales <- sales %>%
+  mutate(revenue = units_sold * unit_price)
+```
+
+## 5. Summarise by category and by region
+
+The script groups the data and adds up units and revenue. Results are ordered from highest to lowest revenue so the largest categories and regions are easy to see first.
+
+```{r summarise, eval=FALSE}
+sales_by_category <- sales %>%
+  group_by(category) %>%
+  summarise(
+    total_units = sum(units_sold),
+    total_revenue = sum(revenue),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(total_revenue))
+
+sales_by_region <- sales %>%
+  group_by(region) %>%
+  summarise(
+    total_units = sum(units_sold),
+    total_revenue = sum(revenue),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(total_revenue))
+```
+
+## 6. Save the outputs
+
+The summary table is saved as a CSV file, and the chart is saved as a PNG image.
+
+```{r save-outputs, eval=FALSE}
+dir.create("outputs", showWarnings = FALSE)
+
+write_csv(sales_by_category, "outputs/sales_by_category.csv")
+
+revenue_plot <- ggplot(sales_by_category, aes(x = reorder(category, -total_revenue), y = total_revenue)) +
+  geom_col() +
+  labs(
+    title = "Total revenue by product category",
+    subtitle = "Synthetic data only",
+    x = "Product category",
+    y = "Total revenue ($)"
+  ) +
+  theme_minimal()
+
+ggsave("outputs/revenue_by_category.png", plot = revenue_plot, width = 7, height = 4.5)
+```
+
+# How to run the script
+
+Run the script from the project root directory:
+
+```{r run-script, eval=FALSE}
+source("analyze_sales.R")
+```
+
+In RStudio, you can also open `analyze_sales.R` and click **Source**.
+
+To preview this documentation file, open `analyze_sales.Rmd` in RStudio or Posit Cloud and click **Knit**. Check that the headings, tables, and code chunks render correctly.
+
+# Limitations
+
+- The data is synthetic, so the results describe the example file only. They should not be used for real business decisions.
+- The script does not handle missing values in a special way. If the input file contained missing values, the summaries would need to be checked and the code updated.
+- The chart shows totals only. It does not show change over time or differences within a category.
+
+# AI assistance note
+
+AI was used to suggest the section organisation and formatting for this file, and to suggest code block examples. The script logic, file paths, column names, and expected totals were checked manually against `analyze_sales.R` and `data/synthetic_sales.csv`. See `Appendix.md` for the prompts used.
